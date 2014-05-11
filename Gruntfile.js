@@ -1,32 +1,59 @@
 module.exports = function(grunt) {
 
+    grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-requirejs');
     grunt.loadNpmTasks('grunt-contrib-less');
     grunt.loadNpmTasks('grunt-string-replace');
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks('grunt-bower-requirejs');
     grunt.loadNpmTasks('grunt-bump');
-    grunt.loadNpmTasks('grunt-shell');
 
     /***************************************************************************
      * Configuration
      */
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
+        jshint: {
+            options: {
+                curly: true,
+                browser: true,
+                devel: true,
+                indent: 4,
+                latedef: true,
+                undef: true,
+                unused: true,
+                expr: true,
+                globals: {
+                    "define": false,
+                    "require": false,
+                },
+                ignores: [
+                    'node_modules/**/*.js',
+                    'public/libs/**/*.js',
+                    'public/res/libs/**/*.js',
+                    'public/res/bower-libs/**/*.js',
+                    'public/res-min/**/*.js'
+                ]
+            },
+            client: ['public/**/*.js'],
+        },
         requirejs: {
             compile: {
                 options: {
-                    baseUrl: "res",
+                    baseUrl: "public/res",
                     name: "main",
-                    out: "res-min/main.js",
-                    mainConfigFile: 'res/main.js',
+                    out: "public/res-min/main.js",
+                    mainConfigFile: 'public/res/main.js',
                     optimize: "uglify2",
+                    inlineText: true,
+                    /*
                     uglify2: {
                         output: {
                             beautify: true,
                             indent_level: 1,
                         },
                     },
+                    */
                     excludeShallow: [
                         'css/css-builder',
                         'less/lessc-server',
@@ -37,65 +64,56 @@ module.exports = function(grunt) {
         },
         less: {
             compile: {
-                files: [
-                    {
-                        expand: true,
-                        cwd: 'res/themes',
-                        src: [
-                            '*.less'
-                        ],
-                        dest: 'res-min/themes',
-                        ext: '.css',
-                    }
-                ]
-            },
-            compress: {
                 options: {
                     compress: true,
-                    paths: 'res/styles'
                 },
                 files: [
                     {
                         expand: true,
-                        cwd: 'res-min/themes',
+                        cwd: 'public/res/themes',
                         src: [
-                            '*.css'
+                            '*.less'
                         ],
-                        dest: 'res-min/themes',
+                        dest: 'public/res-min/themes',
+                        ext: '.css',
+                    },
+                    {
+                        src: 'public/res/styles/base.less',
+                        dest: 'public/res-min/themes/base.css',
                     }
-                ]
+                ],
             },
         },
         'string-replace': {
-            'css-import': {
+            'font-parameters': {
                 files: {
-                    './': 'res-min/themes/*.css',
+                    './': 'public/res-min/themes/*.css',
                 },
                 options: {
                     replacements: [
                         {
-                            pattern: /@import /g,
-                            replacement: '@import (less) '
+                            pattern: /(font\/fontello\.\w+)\?\w+/g,
+                            replacement: '$1'
                         }
                     ]
                 }
             },
-            'config': {
+            'constants': {
                 files: {
-                    'res/config.js': 'res/config.js'
+                    'public/res/constants.js': 'public/res/constants.js'
                 },
                 options: {
                     replacements: [
                         {
-                            pattern: /(var VERSION = ).*/,
-                            replacement: 'var VERSION = "<%= pkg.version %>";'
+                            pattern: /constants\.VERSION = .*/,
+                            replacement: 'constants.VERSION = "<%= pkg.version %>";'
                         },
                     ]
                 }
             },
             'cache-manifest': {
                 files: {
-                    'cache.manifest': 'cache.manifest'
+                    'public/cache.manifest': 'public/cache.manifest'
                 },
                 options: {
                     replacements: [
@@ -117,29 +135,29 @@ module.exports = function(grunt) {
                     // Fonts
                     {
                         expand: true,
-                        cwd: 'res/libs/fontello/font',
+                        cwd: 'public/res/font',
                         src: [
                             '**'
                         ],
-                        dest: 'res-min/font/'
+                        dest: 'public/res-min/font/'
                     },
                     // Images
                     {
                         expand: true,
-                        cwd: 'res/img',
+                        cwd: 'public/res/img',
                         src: [
                             '**'
                         ],
-                        dest: 'res-min/img/'
+                        dest: 'public/res-min/img/'
                     },
                     // Libraries
                     {
                         expand: true,
-                        cwd: 'res/bower-libs/requirejs',
+                        cwd: 'public/res/bower-libs/requirejs',
                         src: [
                             'require.js'
                         ],
-                        dest: 'res-min/'
+                        dest: 'public/res-min/'
                     },
                 ]
             }
@@ -147,7 +165,7 @@ module.exports = function(grunt) {
         // Inject bower dependencies into RequireJS configuration
         bower: {
             target: {
-                rjsConfig: 'res/main.js'
+                rjsConfig: 'public/res/main.js'
             }
         },
         bump: {
@@ -159,23 +177,12 @@ module.exports = function(grunt) {
                 updateConfigs: [
                     'pkg'
                 ],
-                commitFiles: ['-a'],
+                commitFiles: [
+                    '-a'
+                ],
                 pushTo: 'origin'
             }
         },
-        shell: {
-            deploy: {
-                options: {
-                    stdout: true,
-                    stderr: true,
-                    failOnError: true
-                },
-                command: [
-                    'git branch -f gh-pages master',
-                    'git push --all origin'
-                ].join('&&')
-            }
-        }
     });
 
     /***************************************************************************
@@ -183,8 +190,8 @@ module.exports = function(grunt) {
      */
     grunt.registerTask('clean', function() {
 
-        // Remove res-min/ folder
-        grunt.file['delete']('res-min');
+        // Remove public/res-min folder
+        grunt.file['delete']('public/res-min');
 
     });
 
@@ -192,6 +199,9 @@ module.exports = function(grunt) {
      * Build JavaScript
      */
     grunt.registerTask('build-js', function() {
+
+        // JSHint validation
+        grunt.task.run('jshint');
 
         // Run r.js optimization
         grunt.task.run('requirejs');
@@ -205,10 +215,8 @@ module.exports = function(grunt) {
 
         // First compile less files
         grunt.task.run('less:compile');
-        // Then force evaluation of CSS imports
-        grunt.task.run('string-replace:css-import');
-        // Run less another time with CSS evaluation and compression
-        grunt.task.run('less:compress');
+        // Remove fontello checksum arguments
+        grunt.task.run('string-replace:font-parameters');
 
     });
 
@@ -222,11 +230,14 @@ module.exports = function(grunt) {
 
         // List resources and inject them in cache.manifest
         var resFolderList = [
-            'res-min',
-            'lib/MathJax/extensions',
-            'lib/MathJax/fonts/HTML-CSS/TeX/woff',
-            'lib/MathJax/jax/output/HTML-CSS/fonts/TeX',
-            'lib/MathJax/jax/output/HTML-CSS/fonts/STIX'
+            'public/res-min',
+            'public/libs/dictionaries',
+            'public/libs/MathJax/extensions',
+            'public/libs/MathJax/fonts/HTML-CSS/TeX/woff',
+            'public/libs/MathJax/jax/element',
+            'public/libs/MathJax/jax/output/HTML-CSS/autoload',
+            'public/libs/MathJax/jax/output/HTML-CSS/fonts/TeX',
+            'public/libs/MathJax/jax/output/HTML-CSS/fonts/STIX'
         ];
         grunt.task.run('list-res:' + resFolderList.join(':'));
         grunt.task.run('string-replace:cache-manifest');
@@ -238,7 +249,7 @@ module.exports = function(grunt) {
         grunt.util.recurse(arguments, function(arg) {
             grunt.log.writeln('Listing resources: ' + arg);
             grunt.file.recurse(arg, function(abspath) {
-                resourceList.push(abspath);
+                resourceList.push(abspath.replace(/^public\//, ''));
             });
         });
         grunt.config.set('resources', resourceList.join('\n'));
@@ -255,13 +266,12 @@ module.exports = function(grunt) {
     });
 
     /***************************************************************************
-     * Deploy task
+     * Tag task
      */
-    grunt.registerTask('deploy', function() {
-        grunt.task.run('bump-only');
-        grunt.task.run('string-replace:config');
+    grunt.registerTask('tag', function(versionType) {
+        grunt.task.run('bump-only:' + (versionType || 'patch'));
+        grunt.task.run('string-replace:constants');
         grunt.task.run('default');
         grunt.task.run('bump-commit');
-        grunt.task.run('shell');
     });
 };
